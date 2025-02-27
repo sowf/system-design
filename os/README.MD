@@ -9,6 +9,8 @@
 - 3. Virtualization.
   - 3.1. CPU virtualization.
     - 3.1.1. How exactly will programs be executed using time-sharing mechanism?
+    - 3.1.2. What are policies/rules for this?
+    - 3.1.3. How effective will it be? How to measure effectiveness?
   - 3.2. Memory virtualization.
 - 4. Concurrency.
   - 4.1. Basic synchronization mechanisms.
@@ -98,7 +100,7 @@ Now, there is a number of problems:
 
 Let's start with the first one.
 
-### 3.1.1 How exactly will programs be executed using time-sharing mechanism?
+### 3.1.1. How exactly will programs be executed using time-sharing mechanism?
 
 So if we have a time-sharing mechanism it is obvious that programs will be executed consequently.
 The only question is how exactly?
@@ -135,6 +137,7 @@ It doesn't matter whether it finished or not, it will be stopped when time excee
 It has its drawback:
 
 - 1. Finish time of let's say process 1 is equal of 6 TU instead of 3 TU in simple approach.
+- 2. Has context switch overhead.
 
 The advantages are the following:
 
@@ -151,8 +154,57 @@ During execution we have several registers. Program Counter is one of them. It c
 1. Mark the time.
 1. Execute context switch handler of process, so it began to run.
 
-### 3.1.2 What are policies/rules for this?
+### 3.1.2. What are policies/rules for this?
 
 Now, there is the question: how we can determine which process to run next?
 
-#### FIFO Policy
+#### First in, first out (FIFO).
+
+Here system planner takes processes in order they came. And then executes it one by one.
+
+![cpu fifo example](images/cpu2.png)
+
+Advantages:
+
+- 1. Simple logic
+- 2. Very fair. Each process gets equal CPU time units.
+
+Drawbacks:
+
+- 1. Inefficient turnaround time. Process 1 finishes in 6 TU instead of 3 TU.
+- 2. Not so interactive. Response time is bounded by `number_of_processes * 1 TU`.
+- 3. No priority consideration.
+
+#### Shortest job first (SJF).
+
+Here we need to know the time execution of process. It is a bit of magic, but let's say system knows it.
+Now, system can take shortest job as soon it arrives.
+
+Picture below looks almost identical to FIFO, except order of processes. Now first comes the shortest.
+
+![cpu stf example](images/cpu3.png)
+
+Advantages:
+
+- 1. The most interactive approach.
+
+Drawbacks:
+
+- 1. Inefficient turnaround time. Process 1 finishes in 6 TU instead of 3 TU. And it can take way more if we have lots of short processes coming.
+- 2. Not fair at all. Longer the process, less time it gets.
+- 3. No priority consideration as well.
+
+#### Multilevel Feedback Queues (MLFQ).
+
+So, as we saw earlier, we have this tradeoff between interactivity and fairness. What we really want is good enough system for both cases, so we need to create workaround.
+
+### 3.1.3. How effective will it be? How to measure effectiveness?
+
+We can calculate two main numbers:
+
+- 1. Turnaround time: how much time takes to finish task, including all context switches and time taken by other processes. Calculated like this `T_ta = global_finish_time - global_start_time`. It measures the performance of long processes.
+- 2. Response time: how quickly process is provided with cpu after it is created. Calculated like this `T_r = global_create_time - global_start_time`. It measures how interactive system is.
+
+#### FIFO.
+
+### 3.2. Memory virtualization.
