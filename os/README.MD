@@ -229,9 +229,9 @@ We can start a lottery for example, each level will have proportional number of 
 If we want 60%-25%-10%-5% then we will give 60 tickets to first level.
 The winner is chosen randomly.
 
-The last problem this approach has is that the most time consuming process will have least processor's time.
-To approach this problem we will simply add all the tasks back in the first level once a time.
-The time should be chosen carefully:
+The last problem this approach has is that the most time-consuming process will have the least processor's time.
+To approach this problem, we will simply add all the tasks back to the first level periodically.
+The time period should be chosen carefully:
 too big intervals will make processes longer, too short intervals will make this approach similar to Round Robin.
 
 ### 3.1.3. How effective will it be? How to measure effectiveness?
