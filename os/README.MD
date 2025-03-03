@@ -19,6 +19,9 @@
   - 5.1. How HDD works?
   - 5.2. How SSD works?
   - 5.3. File systems.
+    - 5.3.1. Basic implementation.
+    - 5.3.2. Failsafe implementation.
+    - 5.3.3. Physical devices considerations.
   - 5.4. RAID.
 
 ## 1. System Requirements
@@ -75,12 +78,12 @@ What approaches do we have? Why modern operational systems use virtualization?
   - **Description**: No operating system layer. Runs one program at a time.
   - **Examples**: Embedded systems' firmware, bootloaders, BIOS/UEFI implementation.
   - **Limitations**: No hardware abstractions. No resource sharing.
-  Difficult to develop. Requires specialized knowledge of hardware.
+    Difficult to develop. Requires specialized knowledge of hardware.
 - 2. Single-program operating environments.
   - **Description**: Simple OS which can run only one program at a time.
   - **Examples**: MS DOS, early gaming consoles' operating systems.
   - **Limitations**: Cannot run applications simultaneously.
-  Inefficient resourse utilization and limited hardware abstractions.
+    Inefficient resourse utilization and limited hardware abstractions.
 - 3. Cooperative multitasking with direct memory access
   - **Description**: Program volanteers to give control over resources to other programs.
   - **Examples**: Early Mac Os, Windows 3.x.
@@ -159,15 +162,15 @@ It contains number of current line we should execute.
 So what system should do during context switch is simple:
 
 1. Copy all the registers to memory.
-2. Clear all the registers' values to prevent security issues.
-3. Copy all the registers of other process from memory.
-4. Mark the time.
-5. Execute context switch handler of process, so it began to run.
+1. Clear all the registers' values to prevent security issues.
+1. Copy all the registers of other process from memory.
+1. Mark the time.
+1. Execute context switch handler of process, so it began to run.
 
 #### Why program can't read/write system registers like PC?
 
 System has hardware support. CPU has several modes/rings: user and system.
-On load system has system mode enabled. 
+On load system has system mode enabled.
 Before passing control to program, system enables user mode.
 In user mode there are some restrictions for reading/writing registers or memory.
 
@@ -272,13 +275,13 @@ As we can see, now system has well-balanced approach.
 ### 3.2. Memory virtualization.
 
 So, we have time-sharing mechanism for CPU. Now we need to think a bit about memory.
-We want each program to have separate memory, so that programs won't interfere. 
+We want each program to have separate memory, so that programs won't interfere.
 We also want to use all the physical memory available.
 
 Here comes virtual memory. System will give each process virtual memory with the size of physical or even bigger.
 
 Let's clarify what do we need to store as well. To run programs system needs code, stack and heap.
-Code size is constant, while stack and heap are growing. 
+Code size is constant, while stack and heap are growing.
 So if we have an address space it seams a good idea to locate stack and heap on the different sides of it.
 
 ![vm stack and heap](images/vm1.png)
@@ -300,11 +303,11 @@ Atomicity.
 
 ## 5. Durable storage.
 
-System has ability to use memory and several CPUs. 
-Now it needs to store data somehow, 
+System has ability to use memory and several CPUs.
+Now it needs to store data somehow,
 so it could load everything after shutdown or after unexpected power problem.
 
-There are several ways of storing data. 
+There are several ways of storing data.
 Operating system is responsible for communication with phycical devices and data organisation inside them.
 
 ### 5.1. How HDD works?
@@ -316,11 +319,11 @@ The head reads and writes data, it also moves between tracks which is called see
 ![hdd example](images/storage1.png)
 
 As you can see, HDD is very fast to read/write sequential data, while random reads/writes will be very slow.
-This should be taking into account when designing file systems.
+This should be taken into account when designing file systems.
 
 ### 5.2. How SSD works?
 
-SSD (Solid-State Drive) is nonmechanical storage device. It consists of blocks of NAND. 
+SSD (Solid-State Drive) is nonmechanical storage device. It consists of blocks of NAND.
 At first it seams quite similar to RAM but it is not.
 
 We have several operations available:
@@ -329,9 +332,9 @@ We have several operations available:
 - Write
 - Clean block
 
-As you can see we can't really delete data in the middle of the block. 
+As you can see we can't really delete data in the middle of the block.
 Instead we need to read all data from block. Clean block and then write changed data.
-This should be taking into account when designing file systems as well.
+This should be taken into account when designing file systems as well.
 
 Here we have several examples. Let's say we have block of size 5 bytes, and whole ssd consists of 3 blocks.
 Some notation:
@@ -344,12 +347,185 @@ Below is shown simple write of 3 bytes. We had 3 empty bytes in second block so 
 
 ![ssd example 1](images/storage2.png)
 
-Now let's rewrite second byte of block 1. 
+Now let's rewrite second byte of block 1.
 For this we need to copy whole block to memory and erase it.
 Then we write whole block with data, with renewed byte 2.
 
 ![ssd example 2](images/storage3.png)
 
 ### 5.3. File systems.
+
+### 5.3.1. Basic implementation.
+
+We have huge address space and we want to store data somehow efficiently.
+We also want some user-friendly abstraction.
+
+Let's take tree abstraction. Files are located in folders and folders can be located in folders as well.
+
+Now, we need to implement some system which will help us provide user with such abstraction.
+Here are some main design decisions:
+
+1. System might have some node descriptors. They will represent files and folders abstraction.
+Each node descriptor will store file's/folder's metadata like 
+size, name, permissions, timestamps, refcounter and pointer to data itself (data nodes).
+2. It is not that efficient to store this nodes in some random place,
+so let's make an agreement to store them in the beginning of the disk.
+3. We want to be able to access or create node descriptors as quickly as possible so it is good idea to store a bitmap.
+In this bitmap active node descriptors will be marked with 1 and not active / ready to use will be marked with zero.
+4. That being said, we will have upper bound of preallocated node descriptors.
+5. We also want to find free blocks of file easily, so let's do the same for data nodes.
+Now system has both file nodes bitmap and data nodes bitmap.
+
+We have this basic implementation. Although it is easy to understand and build, it has no failsafe mechanisms.
+So if device fails, or computer shuts down unexpectedly we might loose some data.
+And we haven't talked about efectiveness as well, and devices has their own specialties.
+
+Let's checkout some examples.
+
+```
+Initial state
+
+// Here we have single node which is root directory. It contains links to itself.
+
+inode bitmap  10000000
+inodes        [d a:0 r:2] [] [] [] [] [] [] []
+data bitmap   10000000
+data          [(.,0) (..,0)] [] [] [] [] [] [] []
+
+creat("/y");
+
+// Now we create file inside root directory.
+
+inode bitmap  11000000
+inodes        [d a:0 r:2] [f a:-1 r:1] [] [] [] [] [] []
+data bitmap   10000000
+data          [(.,0) (..,0) (y,1)] [] [] [] [] [] [] []
+
+fd=open("/y", O_WRONLY|O_APPEND); write(fd, buf, BLOCKSIZE); close(fd);
+
+// We wrote some data to new file.
+
+inode bitmap  11000000
+inodes        [d a:0 r:2] [f a:1 r:1] [] [] [] [] [] []
+data bitmap   11000000
+data          [(.,0) (..,0) (y,1)] [u] [] [] [] [] [] []
+
+link("/y", "/m");
+
+// We created link to file.
+
+inode bitmap  11000000
+inodes        [d a:0 r:2] [f a:1 r:2] [] [] [] [] [] []
+data bitmap   11000000
+data          [(.,0) (..,0) (y,1) (m,1)] [u] [] [] [] [] [] []
+
+unlink("/m");
+
+// We removed link to file.
+
+inode bitmap  11000000
+inodes        [d a:0 r:2] [f a:1 r:1] [] [] [] [] [] []
+data bitmap   11000000
+data          [(.,0) (..,0) (y,1)] [u] [] [] [] [] [] []
+
+creat("/z");
+
+// We created new file.
+
+inode bitmap  11100000
+inodes        [d a:0 r:2] [f a:1 r:1] [f a:-1 r:1] [] [] [] [] []
+data bitmap   11000000
+data          [(.,0) (..,0) (y,1) (z,2)] [u] [] [] [] [] [] []
+
+mkdir("/f");
+
+// We created new folder.
+
+inode bitmap  11110000
+inodes        [d a:0 r:3] [f a:1 r:1] [f a:-1 r:1] [d a:2 r:2] [] [] [] []
+data bitmap   11100000
+data          [(.,0) (..,0) (y,1) (z,2) (f,3)] [u] [(.,3) (..,0)] [] [] [] [] []
+```
+
+So as you can see to create file/folder we need to perform several updates.
+What happens if something goes wrong during this series of updates?
+
+### 5.3.2. Failsafe implementation.
+
+Before considering fail-preventing mechanisms lets think of what exactly might go wrong. 
+For simplicity lets take `creat("/y");` as an example.
+
+So to create file we need:
+
+1. Allocate an inode (update inode bitmap)
+2. Initialize the inode with metadata
+3. Update the parent directory to include new file entry
+
+As you can see, system crash can happen before any of these operations.
+In that case, file system will be in inconsistent state. 
+We have 2 ways of how to approach this problem:
+
+1. **Fsck (File System Check)**
+
+Mechanism: A recovery utility scans entire file system after an unexpected shutdown, checks for and corrects incosistencies.
+
+Advantages:
+- No extra writes during operations
+
+Disadvantages:
+- Recovery time scales with system size
+- Does not recover from all types of fails.
+
+2. **Journaling**
+
+Mechanism: Before modifying file system structures, changes are recorded in journal. Update looks like this:
+- Log changes
+- Mark journal entry as ready to execute
+- Apply changes to file system
+- Mark journal entry as done
+
+Advantages: 
+- Fast recovery (No full scans)
+- Minimal data loss
+
+Disadvantages: 
+- Additional writes
+- Difficult to implement
+
+It seams a good idea to combine this approaches.
+The choice here is a tradeoff between speed, recovery time and consistency guarantees.
+
+### 5.3.3. Physical devices considerations.
+
+Each device type needs its own personal approach to get maximum out of its resources.
+
+#### HDD
+
+Characteristics:
+
+- Fast sequential access, slow random access.
+- Reading adjacent sectors is faster than scattered.
+- No write cycle limitations.
+
+Optimization Strategies:
+
+1. Minimize seek operations. Group related files into adjacent blocks.
+2. I/O Buffering. 
+Accumulate small writes in memory buffers until a larger, more efficient write can be performed.
+3. Scheduling policy. Sometimes it is more efficient to change order of operations.
+
+#### SSD
+
+Characteristics:
+
+- No mechanical parts, so random access is as fast as sequential access.
+- Limited write endurance.
+- Block-based erasure. Overwriting requires read-erase-write.
+
+Optimization Strategies:
+
+1. Distribute writes evently across flash cells to increase endurance.
+2. Use copy-on-write instead of in-place updates.
+3. Create careful garbage collector.
 
 ### 5.4. RAID.
