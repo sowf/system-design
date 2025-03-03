@@ -16,10 +16,10 @@
   - 4.1. Basic synchronization mechanisms.
   - 4.2. Typical problems.
 - 5. Durable storage.
-  - 5.1. File systems.
-  - 5.2. RAID.
-  - 5.3. How HDD works?
-  - 5.4. How SSD works?
+  - 5.1. How HDD works?
+  - 5.2. How SSD works?
+  - 5.3. File systems.
+  - 5.4. RAID.
 
 ## 1. System Requirements
 
@@ -300,10 +300,56 @@ Atomicity.
 
 ## 5. Durable storage.
 
-### 5.1. File systems.
+System has ability to use memory and several CPUs. 
+Now it needs to store data somehow, 
+so it could load everything after shutdown or after unexpected power problem.
 
-### 5.2. RAID.
+There are several ways of storing data. 
+Operating system is responsible for communication with phycical devices and data organisation inside them.
 
-### 5.3. How HDD works?
+### 5.1. How HDD works?
 
-### 5.4. How SSD works?
+HDD (Hard Disk Drive) is magnetic storage device. It consists of two parts: platter and head.
+The platter is rotating disk, it rotates with constant speed.
+The head reads and writes data, it also moves between tracks which is called seek.
+
+![hdd example](images/storage1.png)
+
+As you can see, HDD is very fast to read/write sequential data, while random reads/writes will be very slow.
+This should be taking into account when designing file systems.
+
+### 5.2. How SSD works?
+
+SSD (Solid-State Drive) is nonmechanical storage device. It consists of blocks of NAND. 
+At first it seams quite similar to RAM but it is not.
+
+We have several operations available:
+
+- Read
+- Write
+- Clean block
+
+As you can see we can't really delete data in the middle of the block. 
+Instead we need to read all data from block. Clean block and then write changed data.
+This should be taking into account when designing file systems as well.
+
+Here we have several examples. Let's say we have block of size 5 bytes, and whole ssd consists of 3 blocks.
+Some notation:
+
+- d - data
+- e - empty
+- i - is not defined
+
+Below is shown simple write of 3 bytes. We had 3 empty bytes in second block so it's okay
+
+![ssd example 1](images/storage2.png)
+
+Now let's rewrite second byte of block 1. 
+For this we need to copy whole block to memory and erase it.
+Then we write whole block with data, with renewed byte 2.
+
+![ssd example 2](images/storage3.png)
+
+### 5.3. File systems.
+
+### 5.4. RAID.
