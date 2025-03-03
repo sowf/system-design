@@ -71,17 +71,24 @@ For now let's concentrate on creating general purpose system.
 
 What approaches do we have? Why modern operational systems use virtualization?
 
-- 1. Bare metal programming
-  - **Description**: aa
-  - **Examples**: aa
-  - **Limitations**: aa
-- 2. Single-program operating environments
+- 1. Bare metal programming.
+  - **Description**: No operating system layer. Runs one program at a time.
+  - **Examples**: Embedded systems' firmware, bootloaders, BIOS/UEFI implementation.
+  - **Limitations**: No hardware abstractions. No resource sharing.
+  Difficult to develop. Requires specialized knowledge of hardware.
+- 2. Single-program operating environments.
+  - **Description**: Simple OS which can run only one program at a time.
+  - **Examples**: MS DOS, early gaming consoles' operating systems.
+  - **Limitations**: Cannot run applications simultaneously.
+  Inefficient resourse utilization and limited hardware abstractions.
 - 3. Cooperative multitasking with direct memory access
   - **Description**: Program volanteers to give control over resources to other programs.
   - **Examples**: Early Mac Os, Windows 3.x.
   - **Limitations**: Security considerations. Program can capture resources and never give them back.
 
 ## 3. Virtualization.
+
+Here, we will talk about preemptive multitasking with memory protection. It has some kind of hardware abstraction, but it is different from the full virtualization provided by VMWare, VirtualBox, or Hyper-V. In this document, the word virtualization refers to the basic hardware abstraction layer present in all modern operating systems.
 
 Virtualization is when we provide a program with virtual resources rather than with physical.
 Physical resources are being used through an abstration layer with some perks.
@@ -145,17 +152,24 @@ The advantages are the following:
 - 1. Pretty secure approach. System planner is responsible for context switch.
 - 2. A way more interactive. But it needs to apply a careful policy of how to arrange processes.
 
-How context switch happens?
+#### How context switch happens?
 
 During execution we have several registers. Program Counter is one of them.
 It contains number of current line we should execute.
 So what system should do during context switch is simple:
 
 1. Copy all the registers to memory.
-1. Clear all the registers' values to prevent security issues.
-1. Copy all the registers of other process from memory.
-1. Mark the time.
-1. Execute context switch handler of process, so it began to run.
+2. Clear all the registers' values to prevent security issues.
+3. Copy all the registers of other process from memory.
+4. Mark the time.
+5. Execute context switch handler of process, so it began to run.
+
+#### Why program can't read/write system registers like PC?
+
+System has hardware support. CPU has several modes/rings: user and system.
+On load system has system mode enabled. 
+Before passing control to program, system enables user mode.
+In user mode there are some restrictions for reading/writing registers or memory.
 
 ### 3.1.2. What are policies/rules for this?
 
@@ -256,6 +270,21 @@ For our approaches, they will be the following:
 As we can see, now system has well-balanced approach.
 
 ### 3.2. Memory virtualization.
+
+So, we have time-sharing mechanism for CPU. Now we need to think a bit about memory.
+We want each program to have separate memory, so that programs won't interfere. 
+We also want to use all the physical memory available.
+
+Here comes virtual memory. System will give each process virtual memory with the size of physical or even bigger.
+
+Let's clarify what do we need to store as well. To run programs system needs code, stack and heap.
+Code size is constant, while stack and heap are growing. 
+So if we have an address space it seams a good idea to locate stack and heap on the different sides of it.
+
+![vm stack and heap](images/vm1.png)
+
+We have declared an abstraction, which will be used by the programs.
+Now we need to implement it efficiently.
 
 ## 4. Concurrency.
 
